@@ -6,7 +6,6 @@ import '../models/event.dart';
 
 class DatabaseHelper {
   static const String _databaseName = 'trabalho_pratico.db';
-  static const int _databaseVersion = 2;
 
   // Nomes das tabelas
   static const String usersTable = 'users';
@@ -33,21 +32,7 @@ class DatabaseHelper {
     final databasesPath = await getDatabasesPath();
     final path = join(databasesPath, _databaseName);
 
-    return openDatabase(
-      path,
-      version: _databaseVersion,
-      onCreate: _onCreate,
-      onUpgrade: _onUpgrade,
-    );
-  }
-
-  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      await db.execute('ALTER TABLE $usersTable ADD COLUMN remoteId INTEGER');
-      await db.execute('ALTER TABLE $contactsTable ADD COLUMN remoteId INTEGER');
-      await db.execute('ALTER TABLE $eventsTable ADD COLUMN remoteId INTEGER');
-      await db.execute('ALTER TABLE $eventsTable ADD COLUMN contactRemoteId INTEGER');
-    }
+    return openDatabase(path, version: 1, onCreate: _onCreate);
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -55,13 +40,12 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS $usersTable (
         id TEXT PRIMARY KEY,
-        remoteId INTEGER,
+        uuid TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL,
         email TEXT NOT NULL,
         identityUserId TEXT,
         createdAt TEXT,
         updatedAt TEXT,
-        isDirty INTEGER DEFAULT 0,
         isDeleted INTEGER DEFAULT 0,
         syncStatus TEXT DEFAULT 'synced'
       )
@@ -71,14 +55,13 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS $contactsTable (
         id TEXT PRIMARY KEY,
-        remoteId INTEGER,
+        uuid TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL,
         email TEXT NOT NULL,
         phoneNumber TEXT NOT NULL,
         userId TEXT NOT NULL,
         createdAt TEXT,
         updatedAt TEXT,
-        isDirty INTEGER DEFAULT 0,
         isDeleted INTEGER DEFAULT 0,
         syncStatus TEXT DEFAULT 'synced',
         FOREIGN KEY (userId) REFERENCES $usersTable (id)
@@ -89,17 +72,15 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS $eventsTable (
         id TEXT PRIMARY KEY,
-        remoteId INTEGER,
+        uuid TEXT NOT NULL UNIQUE,
         title TEXT NOT NULL,
         date TEXT NOT NULL,
         location TEXT NOT NULL,
         contactId TEXT NOT NULL,
-        contactRemoteId INTEGER,
         description TEXT NOT NULL,
         message TEXT,
         createdAt TEXT,
         updatedAt TEXT,
-        isDirty INTEGER DEFAULT 0,
         isDeleted INTEGER DEFAULT 0,
         syncStatus TEXT DEFAULT 'synced',
         FOREIGN KEY (contactId) REFERENCES $contactsTable (id)
@@ -122,11 +103,7 @@ class DatabaseHelper {
 
   Future<User?> getUser(String id) async {
     final db = await database;
-    final maps = await db.query(
-      usersTable,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    final maps = await db.query(usersTable, where: 'id = ?', whereArgs: [id]);
 
     if (maps.isNotEmpty) {
       return User.fromMap(maps.first);
@@ -152,11 +129,7 @@ class DatabaseHelper {
 
   Future<void> deleteUser(String id) async {
     final db = await database;
-    await db.delete(
-      usersTable,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.delete(usersTable, where: 'id = ?', whereArgs: [id]);
   }
 
   // ============ CONTATOS ============
@@ -212,11 +185,7 @@ class DatabaseHelper {
 
   Future<void> deleteContact(String id) async {
     final db = await database;
-    await db.delete(
-      contactsTable,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.delete(contactsTable, where: 'id = ?', whereArgs: [id]);
   }
 
   // ============ EVENTOS ============
@@ -232,11 +201,7 @@ class DatabaseHelper {
 
   Future<Event?> getEvent(String id) async {
     final db = await database;
-    final maps = await db.query(
-      eventsTable,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    final maps = await db.query(eventsTable, where: 'id = ?', whereArgs: [id]);
 
     if (maps.isNotEmpty) {
       return Event.fromMap(maps.first);
@@ -272,11 +237,7 @@ class DatabaseHelper {
 
   Future<void> deleteEvent(String id) async {
     final db = await database;
-    await db.delete(
-      eventsTable,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.delete(eventsTable, where: 'id = ?', whereArgs: [id]);
   }
 
   // ============ SINCRONIZAÇÃO ============
@@ -286,7 +247,7 @@ class DatabaseHelper {
     final db = await database;
     final maps = await db.query(
       usersTable,
-      where: 'syncStatus = ?  OR isDirty = 1',
+      where: 'syncStatus = ?',
       whereArgs: ['pending'],
     );
     return List.generate(maps.length, (i) => User.fromMap(maps[i]));
@@ -297,7 +258,7 @@ class DatabaseHelper {
     final db = await database;
     final maps = await db.query(
       contactsTable,
-      where: 'syncStatus = ? OR isDirty = 1',
+      where: 'syncStatus = ?',
       whereArgs: ['pending'],
     );
     return List.generate(maps.length, (i) => Contact.fromMap(maps[i]));
@@ -308,7 +269,7 @@ class DatabaseHelper {
     final db = await database;
     final maps = await db.query(
       eventsTable,
-      where: 'syncStatus = ? OR isDirty = 1',
+      where: 'syncStatus = ?',
       whereArgs: ['pending'],
     );
     return List.generate(maps.length, (i) => Event.fromMap(maps[i]));
@@ -319,22 +280,7 @@ class DatabaseHelper {
     final db = await database;
     await db.update(
       usersTable,
-      {
-        'syncStatus': 'synced',
-        'isDirty': 0,
-      },
-      where: 'id = ?',
-      whereArgs: [userId],
-    );
-  }
-
-  Future<void> saveUserRemoteId(String userId, int remoteId) async {
-    final db = await database;
-    await db.update(
-      usersTable,
-      {
-        'remoteId': remoteId,
-      },
+      {'syncStatus': 'synced'},
       where: 'id = ?',
       whereArgs: [userId],
     );
@@ -345,22 +291,7 @@ class DatabaseHelper {
     final db = await database;
     await db.update(
       contactsTable,
-      {
-        'syncStatus': 'synced',
-        'isDirty': 0,
-      },
-      where: 'id = ?',
-      whereArgs: [contactId],
-    );
-  }
-
-  Future<void> saveContactRemoteId(String contactId, int remoteId) async {
-    final db = await database;
-    await db.update(
-      contactsTable,
-      {
-        'remoteId': remoteId,
-      },
+      {'syncStatus': 'synced'},
       where: 'id = ?',
       whereArgs: [contactId],
     );
@@ -371,27 +302,7 @@ class DatabaseHelper {
     final db = await database;
     await db.update(
       eventsTable,
-      {
-        'syncStatus': 'synced',
-        'isDirty': 0,
-      },
-      where: 'id = ?',
-      whereArgs: [eventId],
-    );
-  }
-
-  Future<void> saveEventRemoteData(
-    String eventId,
-    int remoteId, {
-    int? contactRemoteId,
-  }) async {
-    final db = await database;
-    await db.update(
-      eventsTable,
-      {
-        'remoteId': remoteId,
-        if (contactRemoteId != null) 'contactRemoteId': contactRemoteId,
-      },
+      {'syncStatus': 'synced'},
       where: 'id = ?',
       whereArgs: [eventId],
     );

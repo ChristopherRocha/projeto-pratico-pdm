@@ -14,8 +14,10 @@ class EventRepository {
     required String description,
     String? message,
   }) async {
+    final uuid = const Uuid().v4();
     final event = Event(
-      id: const Uuid().v4(),
+      id: uuid,
+      uuid: uuid,
       title: title,
       date: date,
       location: location,
@@ -24,7 +26,6 @@ class EventRepository {
       message: message,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
-      isDirty: true,
       syncStatus: 'pending',
     );
 
@@ -51,7 +52,6 @@ class EventRepository {
   Future<void> updateEvent(Event event) async {
     final updatedEvent = event.copyWith(
       updatedAt: DateTime.now(),
-      isDirty: true,
       syncStatus: 'pending',
     );
     await _databaseHelper.updateEvent(updatedEvent);
@@ -64,7 +64,6 @@ class EventRepository {
       final deletedEvent = event.copyWith(
         isDeleted: true,
         updatedAt: DateTime.now(),
-        isDirty: true,
         syncStatus: 'pending',
       );
       await _databaseHelper.updateEvent(deletedEvent);
@@ -79,17 +78,5 @@ class EventRepository {
   /// Marcar um evento como sincronizado
   Future<void> markEventSynced(String eventId) async {
     await _databaseHelper.markEventSynced(eventId);
-  }
-
-  Future<void> saveEventRemoteData(
-    String eventId,
-    int remoteId, {
-    int? contactRemoteId,
-  }) async {
-    await _databaseHelper.saveEventRemoteData(
-      eventId,
-      remoteId,
-      contactRemoteId: contactRemoteId,
-    );
   }
 }

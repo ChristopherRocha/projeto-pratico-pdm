@@ -12,15 +12,16 @@ class ContactRepository {
     required String phoneNumber,
     required String userId,
   }) async {
+    final uuid = const Uuid().v4();
     final contact = Contact(
-      id: const Uuid().v4(),
+      id: uuid,
+      uuid: uuid,
       name: name,
       email: email,
       phoneNumber: phoneNumber,
       userId: userId,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
-      isDirty: true,
       syncStatus: 'pending',
     );
 
@@ -47,7 +48,6 @@ class ContactRepository {
   Future<void> updateContact(Contact contact) async {
     final updatedContact = contact.copyWith(
       updatedAt: DateTime.now(),
-      isDirty: true,
       syncStatus: 'pending',
     );
     await _databaseHelper.updateContact(updatedContact);
@@ -60,7 +60,6 @@ class ContactRepository {
       final deletedContact = contact.copyWith(
         isDeleted: true,
         updatedAt: DateTime.now(),
-        isDirty: true,
         syncStatus: 'pending',
       );
       await _databaseHelper.updateContact(deletedContact);
@@ -75,9 +74,5 @@ class ContactRepository {
   /// Marcar um contato como sincronizado
   Future<void> markContactSynced(String contactId) async {
     await _databaseHelper.markContactSynced(contactId);
-  }
-
-  Future<void> saveContactRemoteId(String contactId, int remoteId) async {
-    await _databaseHelper.saveContactRemoteId(contactId, remoteId);
   }
 }

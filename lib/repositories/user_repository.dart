@@ -11,14 +11,15 @@ class UserRepository {
     required String email,
     String? identityUserId,
   }) async {
+    final uuid = const Uuid().v4();
     final user = User(
-      id: const Uuid().v4(),
+      id: uuid,
+      uuid: uuid,
       name: name,
       email: email,
       identityUserId: identityUserId,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
-      isDirty: true,
       syncStatus: 'pending',
     );
 
@@ -40,7 +41,6 @@ class UserRepository {
   Future<void> updateUser(User user) async {
     final updatedUser = user.copyWith(
       updatedAt: DateTime.now(),
-      isDirty: true,
       syncStatus: 'pending',
     );
     await _databaseHelper.updateUser(updatedUser);
@@ -53,7 +53,6 @@ class UserRepository {
       final deletedUser = user.copyWith(
         isDeleted: true,
         updatedAt: DateTime.now(),
-        isDirty: true,
         syncStatus: 'pending',
       );
       await _databaseHelper.updateUser(deletedUser);
@@ -68,9 +67,5 @@ class UserRepository {
   /// Marcar um usuário como sincronizado
   Future<void> markUserSynced(String userId) async {
     await _databaseHelper.markUserSynced(userId);
-  }
-
-  Future<void> saveUserRemoteId(String userId, int remoteId) async {
-    await _databaseHelper.saveUserRemoteId(userId, remoteId);
   }
 }
