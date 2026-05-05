@@ -64,7 +64,7 @@ class Contact {
     );
   }
 
-  // Converter para JSON para enviar à API
+  // Converter para JSON para enviar à API 
   Map<String, dynamic> toJson() {
     return {
       'uuid': uuid,
